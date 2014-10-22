@@ -229,6 +229,12 @@ angular.module('schemaForm').provider('schemaForm',
   this.stdFormObj            = stdFormObj;
   this.defaultFormDefinition = defaultFormDefinition;
 
+  var complexDirectives = ['tabs'];
+
+  this.addComplexDirective = function(name) {
+    complexDirectives.push(name);
+  };
+
   /**
    * Register a post process function.
    * This function is called with the fully merged
@@ -351,12 +357,14 @@ angular.module('schemaForm').provider('schemaForm',
           obj.items = service.merge(schema, obj.items, ignore, options, obj.readonly);
         }
 
-        //if its has tabs, merge them also!
-        if (obj.tabs) {
-          angular.forEach(obj.tabs, function(tab) {
-            tab.items = service.merge(schema, tab.items, ignore, options, obj.readonly);
-          });
-        }
+        //if its has a complex directive, merge them also!
+        angular.forEach(complexDirectives, function(name) {
+          if (obj.hasOwnProperty(name)) {
+            angular.forEach(obj[name], function(props) {
+              props.items = service.merge(schema, props.items, ignore, options, obj.readonly);
+            });
+          }
+        });
 
         // Special case: checkbox
         // Since have to ternary state we need a default
@@ -434,13 +442,15 @@ angular.module('schemaForm').provider('schemaForm',
         service.traverseForm(f, fn);
       });
 
-      if (form.tabs) {
-        angular.forEach(form.tabs, function(tab) {
-          angular.forEach(tab.items, function(f) {
-            service.traverseForm(f, fn);
+      angular.forEach(complexDirectives, function(name) {
+        if (form.hasOwnProperty(name)) {
+          angular.forEach(form[name], function(props) {
+            angular.forEach(props.items, function(f) {
+              service.traverseForm(f, fn);
+            });
           });
-        });
-      }
+        }
+      });
     };
 
     return service;
