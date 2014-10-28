@@ -1031,6 +1031,10 @@ angular.module('schemaForm').directive('sfArray', ['sfSelect', 'schemaForm', 'sf
           };
 
           scope.appendToArray = function() {
+            if (!scope.canAppendToArray()) {
+              return;
+            }
+
             var len = list.length;
             var copy = scope.copyWithIndex(len);
             schemaForm.traverseForm(copy, function(part) {
@@ -1060,6 +1064,10 @@ angular.module('schemaForm').directive('sfArray', ['sfSelect', 'schemaForm', 'sf
           };
 
           scope.deleteFromArray = function(index) {
+            if (!scope.canDeleteFromArray()) {
+              return;
+            }
+
             list.splice(index, 1);
 
             // Trigger validation.
@@ -1067,6 +1075,22 @@ angular.module('schemaForm').directive('sfArray', ['sfSelect', 'schemaForm', 'sf
               scope.validateArray();
             }
             return list;
+          };
+
+          scope.canDeleteFromArray = function() {
+            if (!form.schema.hasOwnProperty('minItems')) {
+              return true;
+            }
+
+            return list.length > form.schema.minItems;
+          };
+
+          scope.canAppendToArray = function() {
+            if (!form.schema.hasOwnProperty('maxItems')) {
+              return true;
+            }
+
+            return list.length < form.schema.maxItems;
           };
 
           // Always start with one empty form unless configured otherwise.
