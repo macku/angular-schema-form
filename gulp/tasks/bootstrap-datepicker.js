@@ -23,7 +23,9 @@ gulp.task('bootstrap-datepicker', function() {
 
   stream.done()
   .pipe(concat('bootstrap-datepicker.min.js'))
-  .pipe(uglify())
+  .pipe(uglify({
+	outSourceMap: 'bootstrap-datepicker.min.js.map'
+  }))
   .pipe(gulp.dest('./dist/'));
 
 });

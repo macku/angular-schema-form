@@ -10,6 +10,8 @@ gulp.task('minify', function() {
     './src/directives/*.js'
     ])
   .pipe(concat('schema-form.min.js'))
-  .pipe(uglify())
+  .pipe(uglify({
+	outSourceMap: 'schema-form.min.js.map'
+  }))
   .pipe(gulp.dest('./dist/'));
 });

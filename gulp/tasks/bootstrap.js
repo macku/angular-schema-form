@@ -23,7 +23,9 @@ gulp.task('bootstrap', function() {
 
   stream.done()
   .pipe(concat('bootstrap-decorator.min.js'))
-  .pipe(uglify())
+  .pipe(uglify({
+	outSourceMap: 'bootstrap-decorator.min.js.map'
+  }))
   .pipe(gulp.dest('./dist/'));
 
 });

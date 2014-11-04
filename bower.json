@@ -2,7 +2,9 @@
   "name": "angular-schema-form",
   "main": [
     "dist/schema-form.min.js",
-    "dist/bootstrap-decorator.min.js"
+	"dist/schema-form.min.js.map",
+    "dist/bootstrap-decorator.min.js",
+    "dist/bootstrap-decorator.min.js.map"
   ],
   "version": "0.7.6",
   "authors": [
