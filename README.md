@@ -1,12 +1,16 @@
-Angular Schema Form
+Angular Schema Form [![alt text][1.1]][1]
 ===================
-
 [![Build Status](https://travis-ci.org/Textalk/angular-schema-form.svg?branch=master)](https://travis-ci.org/Textalk/angular-schema-form)
 [![Coverage Status](https://coveralls.io/repos/Textalk/angular-schema-form/badge.png?branch=master)](https://coveralls.io/r/Textalk/angular-schema-form?branch=development)
 [![Bower version](https://badge.fury.io/bo/angular-schema-form.svg)](http://badge.fury.io/bo/angular-schema-form)
 [![npm version](https://badge.fury.io/js/angular-schema-form.svg)](http://badge.fury.io/js/angular-schema-form)
 
+
 Generate forms from JSON schemas using AngularJS!
+
+Web Page
+--------
+[schemaform.io](http://schemaform.io)
 
 Demo Time!
 ----------
@@ -37,7 +41,10 @@ apart from JSON Form?
 
 Documentation
 -------------
-There is one section of documentation covering [defaults and form types](docs/index.md). There is another section for how you [extend angular schema form with your own types](https://github.com/Textalk/angular-schema-form/blob/master/docs/extending.md).
+You can find [all documentation here](docs/index.md), it covers all the different field types
+and their options.
+
+It also covers how to [extend angular schema form with your own field types](https://github.com/Textalk/angular-schema-form/blob/master/docs/extending.md).
 
 Basic Usage
 -----------
@@ -146,15 +153,7 @@ angular.module('myModule', ['schemaForm']);
 
 Add-ons
 ------
-There are a couple of add-ons, a date picker, a colorpicker and two wysiwyg editors. 
-They have their own repos and you can find them here with usage instructions:
-
-  * [https://github.com/Textalk/angular-schema-form-datepicker](https://github.com/Textalk/angular-schema-form-datepicker)
-  * [https://github.com/Textalk/angular-schema-form-colorpicker](https://github.com/Textalk/angular-schema-form-colorpicker)
-  * [https://github.com/Textalk/angular-schema-form-tinymce](https://github.com/Textalk/angular-schema-form-tinymce)
-  * [https://github.com/webcanvas/angular-schema-form-ckeditor](https://github.com/webcanvas/angular-schema-form-ckeditor)
-  * [https://github.com/Textalk/angular-schema-form-fontpicker](https://github.com/Textalk/angular-schema-form-fontpicker)
-
+There are several add-ons available, for a full list see the [web page](http://textalk.github.io/angular-schema-form/#third-party-addons).
 Your can also [create your own add-ons!](docs/extending.md)
 
 Contributing
@@ -201,3 +200,8 @@ $ bower install
 $ sudo npm install -g karma-cli
 $ karma start karma.conf.js
 ```
+
+<!-- Please don't remove this: Grab your social icons from https://github.com/carlsednaoui/gitsocial -->
+[1.1]: http://i.imgur.com/tXSoThF.png (twitter icon with padding)
+[1]: http://www.twitter.com/ngSchemaForm
+[1.2]: http://i.imgur.com/wWzX9uB.png (twitter icon without padding)
