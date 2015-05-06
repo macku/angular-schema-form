@@ -236,14 +236,6 @@ angular.module('schemaForm').provider('schemaFormDecorators',
                       }
 
                       if (scope.ngModel && error) {
-                        if (scope.ngModel.$setDirty()) {
-                          scope.ngModel.$setDirty();
-                        } else {
-                          // FIXME: Check that this actually works on 1.2
-                          scope.ngModel.$dirty = true;
-                          scope.ngModel.$pristine = false;
-                        }
-
                         // Set the new validation message if one is supplied
                         // Does not work when validationMessage is just a string.
                         if (validationMessage) {

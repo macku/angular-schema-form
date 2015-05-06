@@ -373,14 +373,6 @@ angular.module('schemaForm').provider('schemaFormDecorators',
                       }
 
                       if (scope.ngModel && error) {
-                        if (scope.ngModel.$setDirty()) {
-                          scope.ngModel.$setDirty();
-                        } else {
-                          // FIXME: Check that this actually works on 1.2
-                          scope.ngModel.$dirty = true;
-                          scope.ngModel.$pristine = false;
-                        }
-
                         // Set the new validation message if one is supplied
                         // Does not work when validationMessage is just a string.
                         if (validationMessage) {
@@ -1556,11 +1548,8 @@ angular.module('schemaForm').directive('sfMessage',
         msg = $sanitize(msg);
       }
 
-      var update = function(valid) {
-        if (valid && !scope.hasError()) {
-          element.html(msg);
-        } else {
-
+      var update = function(invalid, showErrors) {
+        if (invalid && showErrors) {
           var errors = Object.keys(
             (scope.ngModel && scope.ngModel.$error) || {}
           );
@@ -1581,12 +1570,17 @@ angular.module('schemaForm').directive('sfMessage',
             element.html(msg);
           }
         }
+        else {
+          element.html(msg);
+        }
       };
       update();
 
-      scope.$watchCollection('ngModel.$error', function() {
+      scope.$watch(function() {
+          return scope.ngModel.$invalid && (scope.ngModel.$dirty || scope.formCtrl.$submitted);
+      }, function() {
         if (scope.ngModel) {
-          update(scope.ngModel.$valid);
+          update(scope.ngModel.$invalid, scope.ngModel.$dirty || scope.formCtrl.$submitted);
         }
       });
 
@@ -1851,16 +1845,11 @@ angular.module('schemaForm').directive('schemaValidate', ['sfValidator', 'sfSele
       ngModel.$parsers.push(validate);
 
       // Listen to an event so we can validate the input on request
-      scope.$on('schemaFormValidate', function() {
-        if (ngModel.$setDirty) {
-          // Angular 1.3+
+      scope.$on('schemaFormValidate', function(e, setDirty) {
+        if (setDirty) {
           ngModel.$setDirty();
-          validate(ngModel.$modelValue);
-        } else {
-          // Angular 1.2
-          ngModel.$setViewValue(ngModel.$viewValue);
         }
-
+        validate(ngModel.$modelValue);
       });
 
       scope.schemaError = function() {

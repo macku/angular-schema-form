@@ -16,11 +16,8 @@ angular.module('schemaForm').directive('sfMessage',
         msg = $sanitize(msg);
       }
 
-      var update = function(valid) {
-        if (valid && !scope.hasError()) {
-          element.html(msg);
-        } else {
-
+      var update = function(invalid, showErrors) {
+        if (invalid && showErrors) {
           var errors = Object.keys(
             (scope.ngModel && scope.ngModel.$error) || {}
           );
@@ -41,12 +38,17 @@ angular.module('schemaForm').directive('sfMessage',
             element.html(msg);
           }
         }
+        else {
+          element.html(msg);
+        }
       };
       update();
 
-      scope.$watchCollection('ngModel.$error', function() {
+      scope.$watch(function() {
+          return scope.ngModel.$invalid && (scope.ngModel.$dirty || scope.formCtrl.$submitted);
+      }, function() {
         if (scope.ngModel) {
-          update(scope.ngModel.$valid);
+          update(scope.ngModel.$invalid, scope.ngModel.$dirty || scope.formCtrl.$submitted);
         }
       });
 
