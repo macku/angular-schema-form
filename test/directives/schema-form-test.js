@@ -24,7 +24,7 @@ describe('directive',function(){
         "enum": [
           "undefined",
           "null",
-          "NaN",
+          "NaN"
         ]
       }
     }
@@ -89,7 +89,7 @@ describe('directive',function(){
             'enum': [
               'undefined',
               'null',
-              'NaN',
+              'NaN'
             ]
           },
           'attributes': {
@@ -104,7 +104,7 @@ describe('directive',function(){
                 'title': 'Shoulders',
                 'properties': {
                   'left': { 'type': 'string' },
-                  'right': { 'type': 'string' },
+                  'right': { 'type': 'string' }
                 }
               }
             }
@@ -278,7 +278,7 @@ describe('directive',function(){
 
       //A submit button with default style
       scope.form = [{ type: 'submit', style: 'btn-success', title: 'Okidoki'}];
-      var tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="obj"></form>');
+      tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="obj"></form>');
       $compile(tmpl)(scope);
       $rootScope.$apply();
 
@@ -288,7 +288,7 @@ describe('directive',function(){
 
       //A button with default style
       scope.form = [{ type: 'button',title: 'Okidoki'}];
-      var tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="obj"></form>');
+      tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="obj"></form>');
       $compile(tmpl)(scope);
       $rootScope.$apply();
 
@@ -386,7 +386,7 @@ describe('directive',function(){
 
       scope.form = [
         { key: 'name', readonly: true },
-        { key: 'nick', readonly: false },
+        { key: 'nick', readonly: false }
       ];
 
       var tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
@@ -420,8 +420,8 @@ describe('directive',function(){
           },
           "nick": {
             "type": "string",
-            "pattern": "^[a-z]+",
-          },
+            "pattern": "^[a-z]+"
+          }
         }
       };
 
@@ -476,7 +476,7 @@ describe('directive',function(){
           },
           "alias": {
             "type": "string"
-          },
+          }
         }
       };
 
@@ -658,6 +658,57 @@ describe('directive',function(){
     });
   });
 
+  it('should handle schema form default in deep structure with array when model is defined',function(){
+
+    inject(function($compile,$rootScope){
+      var scope = $rootScope.$new();
+      scope.person = {
+        "arr":[{
+            "alias": "Batman"
+        }]
+      };
+
+      scope.schema = {
+        "type": "object",
+        "properties": {
+          "arr" : {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "title": "Person",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "default": "Name"
+                },
+                "nick": {
+                  "type": "string",
+                  "default": "Nick"
+                },
+                "alias": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      };
+
+      //The form defines a fieldset for person, and changes the order of fields
+      //but titles should come from the schema
+      scope.form = ['*'];
+
+      var tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
+
+      $compile(tmpl)(scope);
+      $rootScope.$apply();
+
+      scope.person.arr[0].name.should.be.equal('Name');
+      scope.person.arr[0].nick.should.be.equal('Nick');
+      scope.person.arr[0].alias.should.be.equal('Batman');
+    });
+  });
+
   it('should skip title if form says "notitle"',function(){
 
     inject(function($compile,$rootScope){
@@ -769,7 +820,7 @@ describe('directive',function(){
           "opts": {
             "type": "string",
             "enum": ["one","two"]
-          },
+          }
         }
       };
 
@@ -816,7 +867,7 @@ describe('directive',function(){
             "type": "boolean",
             "title": "<span id='bawkses'>whavre</span>",
             "description": "Cats are <a id='gh' href='http://github.com'>so</a> cool."
-          },
+          }
         }
       };
 
@@ -851,7 +902,7 @@ describe('directive',function(){
           "opts": {
             "type": "string",
             "enum": ["one","two"]
-          },
+          }
         }
       };
 
@@ -893,7 +944,7 @@ describe('directive',function(){
       tmpl.children().eq(0).find('.btn').eq(1).hasClass('btn-success').should.be.false;
 
       //Radiobuttons uninitialized and both styles
-      var tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
+      tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
       scope.form[0].style = styles.both;
 
       $compile(tmpl)(scope);
@@ -906,7 +957,7 @@ describe('directive',function(){
       tmpl.children().eq(0).find('.btn').eq(1).hasClass('btn-success').should.be.false;
 
       //Radiobuttons uninitialized and only selected style
-      var tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
+      tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
       scope.form[0].style = styles.onlySelected;
 
       $compile(tmpl)(scope);
@@ -919,7 +970,7 @@ describe('directive',function(){
       tmpl.children().eq(0).find('.btn').eq(1).hasClass('btn-success').should.be.false;
 
       //Radiobuttons uninitialized and only unselected style
-      var tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
+      tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
       scope.form[0].style = styles.onlyUnselected;
 
       $compile(tmpl)(scope);
@@ -933,7 +984,7 @@ describe('directive',function(){
 
       //Radiobuttons initialized and default styles
       scope.person = { opts: "one" };
-      var tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
+      tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
       scope.form[0].style = '';
 
       $compile(tmpl)(scope);
@@ -946,7 +997,7 @@ describe('directive',function(){
       tmpl.children().eq(0).find('.btn').eq(1).hasClass('btn-success').should.be.false;
 
       //Radiobuttons initialized and both styles
-      var tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
+      tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
       scope.form[0].style = styles.both;
 
       $compile(tmpl)(scope);
@@ -959,7 +1010,7 @@ describe('directive',function(){
       tmpl.children().eq(0).find('.btn').eq(1).hasClass('btn-success').should.be.false;
 
       //Radiobuttons initialized and only selected style
-      var tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
+      tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
       scope.form[0].style = styles.onlySelected;
 
       $compile(tmpl)(scope);
@@ -972,7 +1023,7 @@ describe('directive',function(){
       tmpl.children().eq(0).find('.btn').eq(1).hasClass('btn-success').should.be.false;
 
       //Radiobuttons initialized and only unselected style
-      var tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
+      tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
       scope.form[0].style = styles.onlyUnselected;
 
       $compile(tmpl)(scope);
@@ -1167,7 +1218,7 @@ describe('directive',function(){
         type: "object",
         properties: {
           name: {
-            type: "string",
+            type: "string"
           }
         }
       };
@@ -1206,7 +1257,7 @@ describe('directive',function(){
           name: { type: "string", title: "Name" },
           alias: { type: "string", title: "Alias" },
           nick: { type: "string", title: "Nickname" },
-          tag: { type: "string", title: "Tag" },
+          tag: { type: "string", title: "Tag" }
         }
       };
 
@@ -1229,7 +1280,7 @@ describe('directive',function(){
               ]
             }
           ]
-        },
+        }
       ];
 
       var tmpl = angular.element('<form sf-schema="schema" sf-form="form" sf-model="person"></form>');
@@ -1533,7 +1584,7 @@ describe('directive',function(){
           key: "names",
           type: "tabarray",
           add: "New",
-          style: { remove: "btn-danger" },
+          style: { remove: "btn-danger" }
         },
         {
           key: "subforms",
@@ -1780,7 +1831,7 @@ describe('directive',function(){
       $compile(tmpl)(scope);
       $rootScope.$apply();
 
-      tmpl.children().eq(0).html().should.be.eq('<div class="ng-binding ng-scope">Hello World</div>')
+      tmpl.children().eq(0).html().should.be.eq('<div class="ng-binding ng-scope">Hello World</div>');
 
     });
   });
@@ -1818,7 +1869,7 @@ describe('directive',function(){
       $httpBackend.verifyNoOutstandingExpectation();
       $httpBackend.verifyNoOutstandingRequest();
 
-      tmpl.children().eq(0).html().should.be.eq('<div class="ng-binding ng-scope">Hello World</div>')
+      tmpl.children().eq(0).html().should.be.eq('<div class="ng-binding ng-scope">Hello World</div>');
 
     });
   });
@@ -1858,7 +1909,7 @@ describe('directive',function(){
     {
       name: 'radio buttons',
       property: {
-        type: 'boolean',
+        type: 'boolean'
       },
       form: {
         key: ["field"],
@@ -1878,7 +1929,7 @@ describe('directive',function(){
     {
       name: 'radios inline',
       property: {
-        type: 'boolean',
+        type: 'boolean'
       },
       form: {
         key: ["field"],
@@ -1898,7 +1949,7 @@ describe('directive',function(){
     {
       name: 'radios',
       property: {
-        type: 'boolean',
+        type: 'boolean'
       },
       form: {
         key: ["field"],
@@ -1918,7 +1969,7 @@ describe('directive',function(){
     {
       name: 'select',
       property: {
-        type: 'boolean',
+        type: 'boolean'
       },
       form: {
         key: ["field"],
@@ -1942,7 +1993,7 @@ describe('directive',function(){
     it('should not add "has-success" class to ' + field.name + " field if a correct value is entered, but disableSuccessState is set on form", function () {
       inject(function($compile, $rootScope){
         var scope = $rootScope.$new();
-        scope.model = {}
+        scope.model = {};
         scope.schema = {
           type: 'object',
           properties: {
@@ -1950,7 +2001,7 @@ describe('directive',function(){
           }
         };
         scope.form = [field.form];
-        
+
         var tmpl = angular.element('<form  name="theForm" sf-schema="schema" sf-form="form" sf-model="model"></form>');
         $compile(tmpl)(scope);
         $rootScope.$apply();
@@ -1970,7 +2021,7 @@ describe('directive',function(){
         var scope = $rootScope.$new();
         scope.model = {
           field: field.errorValue
-        }
+        };
         scope.schema = {
           type: 'object',
           properties: {
@@ -1978,7 +2029,7 @@ describe('directive',function(){
           }
         };
         scope.form = [field.form];
-        
+
         var tmpl = angular.element('<form  name="theForm" sf-schema="schema" sf-form="form" sf-model="model"></form>');
         $compile(tmpl)(scope);
         $rootScope.$apply();

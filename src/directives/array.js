@@ -27,6 +27,22 @@ angular.module('schemaForm').directive('sfArray', ['sfSelect', 'schemaForm', 'sf
           scope.$emit('schemaFormPropagateNgModelController', ngModel);
         }
 
+        function traverseArrayItem(part) {
+          if (part.key) {
+            var def;
+            if (angular.isDefined(part['default'])) {
+              def = part['default'];
+            }
+            if (angular.isDefined(part.schema) &&
+                    angular.isDefined(part.schema['default'])) {
+              def = part.schema['default'];
+            }
+
+            if (angular.isDefined(def)) {
+              sfSelect(part.key, scope.model, def);
+            }
+          }
+        }
 
         // Watch for the form definition and then rewrite it.
         // It's the (first) array part of the key, '[]' that needs a number
@@ -98,23 +114,7 @@ angular.module('schemaForm').directive('sfArray', ['sfSelect', 'schemaForm', 'sf
 
             var len = list.length;
             var copy = scope.copyWithIndex(len);
-            schemaForm.traverseForm(copy, function(part) {
-
-              if (part.key) {
-                var def;
-                if (angular.isDefined(part['default'])) {
-                  def = part['default'];
-                }
-                if (angular.isDefined(part.schema) &&
-                    angular.isDefined(part.schema['default'])) {
-                  def = part.schema['default'];
-                }
-
-                if (angular.isDefined(def)) {
-                  sfSelect(part.key, scope.model, def);
-                }
-              }
-            });
+            schemaForm.traverseForm(copy, traverseArrayItem);
 
             // If there are no defaults nothing is added so we need to initialize
             // the array. undefined for basic values, {} or [] for the others.
@@ -171,9 +171,16 @@ angular.module('schemaForm').directive('sfArray', ['sfSelect', 'schemaForm', 'sf
             return list.length < form.schema.maxItems;
           };
 
+          if (list.length) {
+            list.filter(function(item) {
+              return angular.isObject(item);
+            }).forEach(function(item, index) {
+              schemaForm.traverseForm(scope.copyWithIndex(index), traverseArrayItem);
+            });
+          }
           // Always start with one empty form unless configured otherwise.
           // Special case: don't do it if form has a titleMap
-          if (!form.titleMap && form.startEmpty !== true && list.length === 0) {
+          else if (!form.titleMap && form.startEmpty !== true) {
             scope.appendToArray();
           }
 
