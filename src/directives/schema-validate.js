@@ -1,4 +1,6 @@
-angular.module('schemaForm').directive('schemaValidate', ['sfValidator', 'sfSelect', function(sfValidator, sfSelect) {
+angular.module('schemaForm').directive('schemaValidate', ['sfValidator', '$parse', 'sfSelect',
+  function(sfValidator, $parse, sfSelect) {
+
   return {
     restrict: 'A',
     scope: false,
@@ -7,22 +9,14 @@ angular.module('schemaForm').directive('schemaValidate', ['sfValidator', 'sfSele
     priority: 500,
     require: 'ngModel',
     link: function(scope, element, attrs, ngModel) {
-
-
       // We need the ngModelController on several places,
       // most notably for errors.
       // So we emit it up to the decorator directive so it can put it on scope.
       scope.$emit('schemaFormPropagateNgModelController', ngModel);
 
       var error = null;
+        var form = scope.$eval(attrs.schemaValidate);
 
-      var getForm = function() {
-        if (!form) {
-          form = scope.$eval(attrs.schemaValidate);
-        }
-        return form;
-      };
-      var form   = getForm();
       if (form.copyValueTo) {
         ngModel.$viewChangeListeners.push(function() {
           var paths = form.copyValueTo;
@@ -35,7 +29,6 @@ angular.module('schemaForm').directive('schemaValidate', ['sfValidator', 'sfSele
       // Validate against the schema.
 
       var validate = function(viewValue) {
-        form = getForm();
         //Still might be undefined
         if (!form) {
           return viewValue;
@@ -47,6 +40,7 @@ angular.module('schemaForm').directive('schemaValidate', ['sfValidator', 'sfSele
         }
 
         var result =  sfValidator.validate(form, viewValue);
+
         // Since we might have different tv4 errors we must clear all
         // errors that start with tv4-
         Object.keys(ngModel.$error)
@@ -57,6 +51,15 @@ angular.module('schemaForm').directive('schemaValidate', ['sfValidator', 'sfSele
           // it is invalid, return undefined (no model update)
           ngModel.$setValidity('tv4-' + result.error.code, false);
           error = result.error;
+
+            // In Angular 1.3+ return the viewValue, otherwise we inadvertenly
+            // will trigger a 'parse' error.
+            // we will stop the model value from updating with our own $validator
+            // later.
+            if (ngModel.$validators) {
+              return viewValue;
+            }
+            // Angular 1.2 on the other hand lacks $validators and don't add a 'parse' error.
           return undefined;
         }
         return viewValue;
@@ -76,7 +79,7 @@ angular.module('schemaForm').directive('schemaValidate', ['sfValidator', 'sfSele
       });
 
       ['$validators', '$asyncValidators'].forEach(function(attr) {
-        // Check if our version of angular has i, i.e. 1.3+
+          // Check if our version of angular has validators, i.e. 1.3+
         if (form[attr] && ngModel[attr]) {
           angular.forEach(form[attr], function(fn, name) {
             ngModel[attr][name] = fn;
@@ -85,7 +88,7 @@ angular.module('schemaForm').directive('schemaValidate', ['sfValidator', 'sfSele
       });
 
       // Get in last of the parses so the parsed value has the correct type.
-      // We don't use $validators since we like to set different errors depeding tv4 error codes
+        // We don't use $validators since we like to set different errors depending tv4 error codes
       ngModel.$parsers.push(validate);
 
       // Listen to an event so we can validate the input on request
@@ -94,12 +97,13 @@ angular.module('schemaForm').directive('schemaValidate', ['sfValidator', 'sfSele
           ngModel.$setDirty();
         }
         validate(ngModel.$modelValue);
+        // Listen to an event so we can validate the input on request
+        scope.$on('schemaFormValidate', scope.validateField);
       });
 
       scope.schemaError = function() {
         return error;
       };
-
     }
   };
 }]);

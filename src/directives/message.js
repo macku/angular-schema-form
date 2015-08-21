@@ -1,26 +1,38 @@
 angular.module('schemaForm').directive('sfMessage',
 ['$injector', 'sfErrorMessage', function($injector, sfErrorMessage) {
+
+  //Inject sanitizer if it exists
+  var $sanitize = $injector.has('$sanitize') ?
+                  $injector.get('$sanitize') : function(html) { return html; };
+
   return {
     scope: false,
     restrict: 'EA',
     link: function(scope, element, attrs) {
 
-      //Inject sanitizer if it exists
-      var $sanitize = $injector.has('$sanitize') ?
-                      $injector.get('$sanitize') : function(html) { return html; };
-
-      //Prepare and sanitize message, i.e. description in most cases.
-      var msg = '';
+      var message = '';
       if (attrs.sfMessage) {
-        msg = scope.$eval(attrs.sfMessage) || '';
-        msg = $sanitize(msg);
+        scope.$watch(attrs.sfMessage, function(msg) {
+          if (msg) {
+            message = $sanitize(msg);
+            if (scope.ngModel) {
+              update(scope.ngModel.$valid);
+            } else {
+              update();
+			}
+          }
+        });
       }
 
       var update = function(invalid, showErrors) {
         if (invalid && showErrors) {
-          var errors = Object.keys(
+		  var errors = Object.keys(
             (scope.ngModel && scope.ngModel.$error) || {}
           );
+
+          // In Angular 1.3 we use one $validator to stop the model value from getting updated.
+          // this means that we always end up with a 'schemaForm' error.
+          errors = errors.filter(function(e) { return e !== 'schemaForm'; });
 
           // We only show one error.
           // TODO: Make that optional
@@ -35,13 +47,15 @@ angular.module('schemaForm').directive('sfMessage',
               scope.options && scope.options.validationMessage
             ));
           } else {
-            element.html(msg);
+            element.html(message);
           }
         }
         else {
-          element.html(msg);
+          element.html(message);
         }
       };
+
+      // Update once.
       update();
 
       scope.$watch(function() {
