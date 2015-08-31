@@ -65,6 +65,81 @@ angular.module('schemaForm').provider('sfPath',
   };
 }]);
 
+/**
+ * @ngdoc service
+ * @name sfSelect
+ * @kind function
+ *
+ */
+angular.module('schemaForm').factory('sfSelect', ['sfPath', function(sfPath) {
+  var numRe = /^\d+$/;
+
+  /**
+    * @description
+    * Utility method to access deep properties without
+    * throwing errors when things are not defined.
+    * Can also set a value in a deep structure, creating objects when missing
+    * ex.
+    * var foo = Select('address.contact.name',obj)
+    * Select('address.contact.name',obj,'Leeroy')
+    *
+    * @param {string} projection A dot path to the property you want to get/set
+    * @param {object} obj   (optional) The object to project on, defaults to 'this'
+    * @param {Any}    valueToSet (opional)  The value to set, if parts of the path of
+    *                 the projection is missing empty objects will be created.
+    * @returns {Any|undefined} returns the value at the end of the projection path
+    *                          or undefined if there is none.
+    */
+  return function(projection, obj, valueToSet) {
+    if (!obj) {
+      obj = this;
+    }
+    //Support [] array syntax
+    var parts = typeof projection === 'string' ? sfPath.parse(projection) : projection;
+
+    if (typeof valueToSet !== 'undefined' && parts.length === 1) {
+      //special case, just setting one variable
+      obj[parts[0]] = valueToSet;
+      return obj;
+    }
+
+    if (typeof valueToSet !== 'undefined' &&
+        typeof obj[parts[0]] === 'undefined') {
+       // We need to look ahead to check if array is appropriate
+      obj[parts[0]] = parts.length > 2 && numRe.test(parts[1]) ? [] : {};
+    }
+
+    var value = obj[parts[0]];
+    for (var i = 1; i < parts.length; i++) {
+      // Special case: We allow JSON Form syntax for arrays using empty brackets
+      // These will of course not work here so we exit if they are found.
+      if (parts[i] === '') {
+        return undefined;
+      }
+      if (typeof valueToSet !== 'undefined') {
+        if (i === parts.length - 1) {
+          //last step. Let's set the value
+          value[parts[i]] = valueToSet;
+          return valueToSet;
+        } else {
+          // Make sure to create new objects on the way if they are not there.
+          // We need to look ahead to check if array is appropriate
+          var tmp = value[parts[i]];
+          if (typeof tmp === 'undefined' || tmp === null) {
+            tmp = numRe.test(parts[i + 1]) ? [] : {};
+            value[parts[i]] = tmp;
+          }
+          value = tmp;
+        }
+      } else if (value) {
+        //Just get nex value.
+        value = value[parts[i]];
+      }
+    }
+    return value;
+  };
+}]);
+
 
 // FIXME: type template (using custom builder)
 angular.module('schemaForm').provider('sfBuilder', ['sfPathProvider', function(sfPathProvider) {
@@ -167,6 +242,60 @@ angular.module('schemaForm').provider('sfBuilder', ['sfPathProvider', function(s
           }
         }
       }
+    },
+    condition: function(args) {
+      // Do we have a condition? Then we slap on an ng-if on all children,
+      // but be nice to existing ng-if.
+      if (args.form.condition) {
+        var evalExpr = 'evalExpr(' + args.path +
+                       '.contidion, { model: model, "arrayIndex": $index})';
+        if (args.form.key) {
+          var strKey = sfPathProvider.stringify(args.form.key);
+          evalExpr = 'evalExpr(' + args.path + '.condition,{ model: model, "arrayIndex": $index, ' +
+                     '"modelValue": model' + (strKey[0] === '[' ? '' : '.') + strKey + '})';
+        }
+
+        var children = args.fieldFrag.children || args.fieldFrag.childNodes;
+        for (var i = 0; i < children.length; i++) {
+          var child = children[i];
+          var ngIf = child.getAttribute('ng-if');
+          child.setAttribute(
+            'ng-if',
+            ngIf ?
+            '(' + ngIf +
+            ') || (' + evalExpr + ')'
+            : evalExpr
+          );
+        }
+      }
+    },
+    array: function(args) {
+      var items = args.fieldFrag.querySelector('[schema-form-array-items]');
+      if (items) {
+        state = angular.copy(args.state);
+        state.keyRedaction = state.keyRedaction || 0;
+        state.keyRedaction += args.form.key.length + 1;
+
+        // Special case, an array with just one item in it that is not an object.
+        // So then we just override the modelValue
+        if (args.form.schema && args.form.schema.items &&
+            args.form.schema.items.type &&
+            args.form.schema.items.type.indexOf('object') === -1 &&
+            args.form.schema.items.type.indexOf('array') === -1) {
+          var strKey = sfPathProvider.stringify(args.form.key).replace(/"/g, '&quot;') + '[$index]';
+          state.modelValue = 'modelArray[$index]';
+        } else {
+          state.modelName = 'item';
+        }
+
+        // Flag to the builder that where in an array.
+        // This is needed for compatabiliy if a "old" add-on is used that
+        // hasn't been transitioned to the new builder.
+        state.arrayCompatFlag = true;
+
+        var childFrag = args.build(args.form.items, args.path + '.items', state);
+        items.appendChild(childFrag);
+      }
     }
   };
   this.builders = builders;
@@ -204,17 +333,25 @@ angular.module('schemaForm').provider('sfBuilder', ['sfPathProvider', function(s
         if (!field.replace) {
           // Backwards compatability build
           var n = document.createElement(snakeCase(decorator.__name, '-'));
-          n.setAttribute('form', path + '[' + index + ']');
+          if (state.arrayCompatFlag) {
+            n.setAttribute('form','copyWithIndex($index)');
+          } else {
+            n.setAttribute('form', path + '[' + index + ']');
+          }
+
           (checkForSlot(f, slots) || frag).appendChild(n);
 
         } else {
           var tmpl;
 
+          // Reset arrayCompatFlag, it's only valid for direct children of the array.
+          state.arrayCompatFlag = false;
+
           // TODO: Create a couple fo testcases, small and large and
           //       measure optmization. A good start is probably a cache of DOM nodes for a particular
           //       template that can be cloned instead of using innerHTML
           var div = document.createElement('div');
-          var template = templateFn(field.template) || templateFn([decorator['default'].template]);
+          var template = templateFn(f, field) || templateFn(f, decorator['default']);
           div.innerHTML = template;
 
           // Move node to a document fragment, we don't want the div.
@@ -238,11 +375,14 @@ angular.module('schemaForm').provider('sfBuilder', ['sfPathProvider', function(s
 
           };
 
+          // Let the form definiton override builders if it wants to.
+          var builderFn = f.builder || field.builder;
+
           // Builders are either a function or a list of functions.
-          if (typeof field.builder === 'function') {
-            field.builder(args);
+          if (typeof builderFn === 'function') {
+            builderFn(args);
           } else {
-            field.builder.forEach(function(fn) { fn(args); });
+            builderFn.forEach(function(fn) { fn(args); });
           }
 
           // Append
@@ -255,17 +395,20 @@ angular.module('schemaForm').provider('sfBuilder', ['sfPathProvider', function(s
     };
 
     return {
-        /**
-         * Builds a form from a canonical form definition
-         */
-        build: function(form, decorator, slots, lookup) {
-          return build(form, decorator, function(url) {
-            return $templateCache.get(url);
-          }, slots, undefined, undefined, lookup);
+      /**
+       * Builds a form from a canonical form definition
+       */
+      build: function(form, decorator, slots, lookup) {
+        return build(form, decorator, function(form, field) {
+          if (form.type === 'template') {
+            return form.template;
+          }
+          return $templateCache.get(field.template);
+        }, slots, undefined, undefined, lookup);
 
-        },
-        builder: builders,
-        internalBuild: build
+      },
+      builder: builders,
+      internalBuild: build
     };
   }];
 
@@ -1185,7 +1328,7 @@ angular.module('schemaForm').provider('schemaForm',
 
     var service = {};
 
-    service.merge = function(schema, form, ignore, options, readonly) {
+    service.merge = function(schema, form, ignore, options, readonly, asyncTemplates) {
       form  = form || ['*'];
       options = options || {};
 
@@ -1256,7 +1399,7 @@ angular.module('schemaForm').provider('schemaForm',
 
         //if it's a type with items, merge 'em!
         if (obj.items) {
-          obj.items = service.merge(schema, obj.items, ignore, options, obj.readonly);
+          obj.items = service.merge(schema, obj.items, ignore, options, obj.readonly, asyncTemplates);
         }
 
         //if its has a complex directive, merge them also!
@@ -1268,10 +1411,24 @@ angular.module('schemaForm').provider('schemaForm',
           }
         });
 
+        //if its has tabs, merge them also!
+        if (obj.tabs) {
+          angular.forEach(obj.tabs, function(tab) {
+            tab.items = service.merge(schema, tab.items, ignore, options, obj.readonly, asyncTemplates);
+          });
+        }
+
         // Special case: checkbox
         // Since have to ternary state we need a default
         if (obj.type === 'checkbox' && angular.isUndefined(obj.schema['default'])) {
           obj.schema['default'] = false;
+        }
+        
+        // Special case: template type with tempplateUrl that's needs to be loaded before rendering
+        // TODO: this is not a clean solution. Maybe something cleaner can be made when $ref support
+        // is introduced since we need to go async then anyway
+        if (asyncTemplates && obj.type === 'template' && !obj.template && obj.templateUrl) {
+          asyncTemplates.push(obj);
         }
 
         return obj;
@@ -1360,81 +1517,6 @@ angular.module('schemaForm').provider('schemaForm',
 
 }]);
 
-/**
- * @ngdoc service
- * @name sfSelect
- * @kind function
- *
- */
-angular.module('schemaForm').factory('sfSelect', ['sfPath', function(sfPath) {
-  var numRe = /^\d+$/;
-
-  /**
-    * @description
-    * Utility method to access deep properties without
-    * throwing errors when things are not defined.
-    * Can also set a value in a deep structure, creating objects when missing
-    * ex.
-    * var foo = Select('address.contact.name',obj)
-    * Select('address.contact.name',obj,'Leeroy')
-    *
-    * @param {string} projection A dot path to the property you want to get/set
-    * @param {object} obj   (optional) The object to project on, defaults to 'this'
-    * @param {Any}    valueToSet (opional)  The value to set, if parts of the path of
-    *                 the projection is missing empty objects will be created.
-    * @returns {Any|undefined} returns the value at the end of the projection path
-    *                          or undefined if there is none.
-    */
-  return function(projection, obj, valueToSet) {
-    if (!obj) {
-      obj = this;
-    }
-    //Support [] array syntax
-    var parts = typeof projection === 'string' ? sfPath.parse(projection) : projection;
-
-    if (typeof valueToSet !== 'undefined' && parts.length === 1) {
-      //special case, just setting one variable
-      obj[parts[0]] = valueToSet;
-      return obj;
-    }
-
-    if (typeof valueToSet !== 'undefined' &&
-        typeof obj[parts[0]] === 'undefined') {
-       // We need to look ahead to check if array is appropriate
-      obj[parts[0]] = parts.length > 2 && numRe.test(parts[1]) ? [] : {};
-    }
-
-    var value = obj[parts[0]];
-    for (var i = 1; i < parts.length; i++) {
-      // Special case: We allow JSON Form syntax for arrays using empty brackets
-      // These will of course not work here so we exit if they are found.
-      if (parts[i] === '') {
-        return undefined;
-      }
-      if (typeof valueToSet !== 'undefined') {
-        if (i === parts.length - 1) {
-          //last step. Let's set the value
-          value[parts[i]] = valueToSet;
-          return valueToSet;
-        } else {
-          // Make sure to create new objects on the way if they are not there.
-          // We need to look ahead to check if array is appropriate
-          var tmp = value[parts[i]];
-          if (typeof tmp === 'undefined' || tmp === null) {
-            tmp = numRe.test(parts[i + 1]) ? [] : {};
-            value[parts[i]] = tmp;
-          }
-          value = tmp;
-        }
-      } else if (value) {
-        //Just get nex value.
-        value = value[parts[i]];
-      }
-    }
-    return value;
-  };
-}]);
-
 /*  Common code for validating a value against its form and schema definition */
 /* global tv4 */
 angular.module('schemaForm').factory('sfValidator', [function() {
@@ -1496,6 +1578,7 @@ angular.module('schemaForm').factory('sfValidator', [function() {
 
 /**
  * Directive that handles the model arrays
+ * DEPRECATED with the new builder use the sfNewArray instead.
  */
 angular.module('schemaForm').directive('sfArray', ['sfSelect', 'schemaForm', 'sfValidator', 'sfPath',
   function(sfSelect, schemaForm, sfValidator, sfPath) {
@@ -2117,6 +2200,242 @@ angular.module('schemaForm').directive('sfMessage',
   };
 }]);
 
+/**
+ * Directive that handles the model arrays
+ */
+angular.module('schemaForm').directive('sfNewArray', ['sfSelect', 'sfPath', 'schemaForm',
+function(sel, sfPath, schemaForm) {
+  return {
+    scope: false,
+    link: function(scope, element, attrs) {
+      scope.min = 0;
+
+      scope.modelArray = scope.$eval(attrs.sfNewArray);
+
+      // We need to have a ngModel to hook into validation. It doesn't really play well with
+      // arrays though so we both need to trigger validation and onChange.
+      // So we watch the value as well. But watching an array can be tricky. We wan't to know
+      // when it changes so we can validate,
+      var watchFn =  function() {
+        //scope.modelArray = modelArray;
+        scope.modelArray = scope.$eval(attrs.sfNewArray);
+        // validateField method is exported by schema-validate
+        if (scope.validateField) {
+          scope.validateField();
+        }
+      };
+
+      var onChangeFn =  function() {
+        if (scope.form && scope.form.onChange) {
+          if (angular.isFunction(scope.form.onChange)) {
+            scope.form.onChange(scope.modelArray, scope.form);
+          } else {
+            scope.evalExpr(scope.form.onChange, {'modelValue': scope.modelArray, form: scope.form});
+          }
+        }
+      };
+
+      // We need the form definition to make a decision on how we should listen.
+      var once = scope.$watch('form', function(form) {
+        if (!form) {
+          return;
+        }
+
+        // Always start with one empty form unless configured otherwise.
+        // Special case: don't do it if form has a titleMap
+        if (!form.titleMap && form.startEmpty !== true && (!scope.modelArray || scope.modelArray.length === 0)) {
+          scope.appendToArray();
+        }
+
+        // If we have "uniqueItems" set to true, we must deep watch for changes.
+        if (scope.form && scope.form.schema && scope.form.schema.uniqueItems === true) {
+          scope.$watch(attrs.sfNewArray, watchFn, true);
+
+          // We still need to trigger onChange though.
+          scope.$watch([attrs.sfNewArray, attrs.sfNewArray + '.length'], onChangeFn);
+
+        } else {
+          // Otherwise we like to check if the instance of the array has changed, or if something
+          // has been added/removed.
+          if (scope.$watchGroup) {
+            scope.$watchGroup([attrs.sfNewArray, attrs.sfNewArray + '.length'], function() {
+              watchFn();
+              onChangeFn();
+            });
+          } else {
+            // Angular 1.2 support
+            scope.$watch(attrs.sfNewArray, function() {
+              watchFn();
+              onChangeFn();
+            });
+            scope.$watch(attrs.sfNewArray + '.length', function() {
+              watchFn();
+              onChangeFn();
+            });
+          }
+        }
+
+        // Title Map handling
+        // If form has a titleMap configured we'd like to enable looping over
+        // titleMap instead of modelArray, this is used for intance in
+        // checkboxes. So instead of variable number of things we like to create
+        // a array value from a subset of values in the titleMap.
+        // The problem here is that ng-model on a checkbox doesn't really map to
+        // a list of values. This is here to fix that.
+        if (form.titleMap && form.titleMap.length > 0) {
+          scope.titleMapValues = [];
+
+          // We watch the model for changes and the titleMapValues to reflect
+          // the modelArray
+          var updateTitleMapValues = function(arr) {
+            scope.titleMapValues = [];
+            arr = arr || [];
+
+            form.titleMap.forEach(function(item) {
+              scope.titleMapValues.push(arr.indexOf(item.value) !== -1);
+            });
+          };
+          //Catch default values
+          updateTitleMapValues(scope.modelArray);
+
+          // TODO: Refactor and see if we can get rid of this watch by piggy backing on the
+          // validation watch.
+          scope.$watchCollection('modelArray', updateTitleMapValues);
+
+          //To get two way binding we also watch our titleMapValues
+          scope.$watchCollection('titleMapValues', function(vals, old) {
+            if (vals && vals !== old) {
+              var arr = scope.modelArray;
+
+              // Apparently the fastest way to clear an array, readable too.
+              // http://jsperf.com/array-destroy/32
+              while (arr.length > 0) {
+                arr.pop();
+              }
+              form.titleMap.forEach(function(item, index) {
+                if (vals[index]) {
+                  arr.push(item.value);
+                }
+              });
+
+              // Time to validate the rebuilt array.
+              // validateField method is exported by schema-validate
+              if (scope.validateField) {
+                scope.validateField();
+              }
+            }
+          });
+        }
+
+        once();
+      });
+
+      scope.appendToArray = function() {
+        var empty;
+
+        // Create and set an array if needed.
+        var model = scope.modelArray;
+        if (!model) {
+          var selection = sfPath.parse(attrs.sfNewArray);
+          model = [];
+          sel(selection, scope, model);
+          scope.modelArray = model;
+        }
+
+        // Same old add empty things to the array hack :(
+        if (scope.form && scope.form.schema && scope.form.schema.items) {
+
+          var items = scope.form.schema.items;
+          if (items.type && items.type.indexOf('object') !== -1) {
+            empty = {};
+
+            // Check for possible defaults
+            if (!scope.options || scope.options.setSchemaDefaults !== false) {
+              empty = angular.isDefined(items['default']) ? items['default'] : empty;
+
+              // Check for defaults further down in the schema.
+              // If the default instance sets the new array item to something falsy, i.e. null
+              // then there is no need to go further down.
+              if (empty) {
+                schemaForm.traverseSchema(items, function(prop, path) {
+                  if (angular.isDefined(prop['default'])) {
+                    sel(path, empty, prop['default']);
+                  }
+                });
+              }
+            }
+
+          } else if (items.type && items.type.indexOf('array') !== -1) {
+            empty = [];
+            if (!scope.options || scope.options.setSchemaDefaults !== false) {
+              empty = items['default'] || empty;
+            }
+          } else {
+            // No type? could still have defaults.
+            if (!scope.options || scope.options.setSchemaDefaults !== false) {
+              empty = items['default'] || empty;
+            }
+          }
+        }
+        model.push(empty);
+
+        return model;
+      };
+
+      scope.deleteFromArray = function(index) {
+        var model = scope.modelArray;
+        if (model) {
+          model.splice(index, 1);
+        }
+        return model;
+      };
+
+      // For backwards compatability, i.e. when a bootstrap-decorator tag is used
+      // as child to the array.
+      var setIndex = function(index) {
+        return function(form) {
+          if (form.key) {
+            form.key[form.key.indexOf('')] = index;
+          }
+        };
+      };
+      var formDefCache = {};
+      scope.copyWithIndex = function(index) {
+        var form = scope.form;
+        if (!formDefCache[index]) {
+
+          // To be more compatible with JSON Form we support an array of items
+          // in the form definition of "array" (the schema just a value).
+          // for the subforms code to work this means we wrap everything in a
+          // section. Unless there is just one.
+          var subForm = form.items[0];
+          if (form.items.length > 1) {
+            subForm = {
+              type: 'section',
+              items: form.items.map(function(item) {
+                item.ngModelOptions = form.ngModelOptions;
+                if (angular.isUndefined(item.readonly)) {
+                  item.readonly = form.readonly;
+                }
+                return item;
+              })
+            };
+          }
+
+          if (subForm) {
+            var copy = angular.copy(subForm);
+            copy.arrayIndex = index;
+            schemaForm.traverseForm(copy, setIndex(index));
+            formDefCache[index] = copy;
+          }
+        }
+        return formDefCache[index];
+      };
+
+    }
+  };
+}]);
+
 /*
 FIXME: real documentation
 <form sf-form="form"  sf-schema="schema" sf-decorator="foobar"></form>
@@ -2124,8 +2443,8 @@ FIXME: real documentation
 
 angular.module('schemaForm')
        .directive('sfSchema',
-['$compile', 'schemaForm', 'schemaFormDecorators', 'sfSelect', 'sfPath', 'sfBuilder',
-  function($compile,  schemaForm,  schemaFormDecorators, sfSelect, sfPath, sfBuilder) {
+['$compile', '$http', '$templateCache', '$q','schemaForm', 'schemaFormDecorators', 'sfSelect', 'sfPath', 'sfBuilder',
+  function($compile, $http, $templateCache, $q, schemaForm,  schemaFormDecorators, sfSelect, sfPath, sfBuilder) {
 
     return {
       scope: {
@@ -2184,8 +2503,27 @@ angular.module('schemaForm')
 
         // Common renderer function, can either be triggered by a watch or by an event.
         var render = function(schema, form) {
-          var merged = schemaForm.merge(schema, form, ignore, scope.options);
+          var asyncTemplates = [];
+          var merged = schemaForm.merge(schema, form, ignore, scope.options, undefined, asyncTemplates);
 
+          if (asyncTemplates.length > 0) {
+            // Pre load all async templates and put them on the form for the builder to use.
+            $q.all(asyncTemplates.map(function(form) {
+              return $http.get(form.templateUrl, {cache: $templateCache}).then(function(res) {
+                                  form.template = res.data;
+                                });
+            })).then(function() {
+              internalRender(schema, form, merged);
+            });
+
+          } else {
+            internalRender(schema, form, merged);
+          }
+
+
+        };
+
+        var internalRender = function(schema, form, merged) {
           // Create a new form and destroy the old one.
           // Not doing keeps old form elements hanging around after
           // they have been removed from the DOM
